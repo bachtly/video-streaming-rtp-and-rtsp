@@ -1,11 +1,18 @@
 import React from 'react'
-import io from 'socket.io-client';
+import io from 'socket.io-client'
+
 
 function HomePage() {
+	var arr_b = new ArrayBuffer(16);
+	var arr = new Int8Array(arr_b);
+	arr[0]=1; arr[1]=1; arr[4]=1; arr[5]=1;
+	console.log(arr);
+
+	var arr_s = arr.slice(0,4);
+	console.log(arr_s);	
+	console.log(arr_s.length);	
 
 	var socket = '';
-	
-
 	// Sends a message to the server via sockets
 	const setup = () => {
 		socket = io.connect('ws://127.0.0.1:1410')
