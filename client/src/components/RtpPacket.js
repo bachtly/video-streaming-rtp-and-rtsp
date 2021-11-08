@@ -2,6 +2,7 @@ export default class RtpPacket {
 
     HEADER_SIZE = 12;
 	header = new Int8Array(new ArrayBuffer(this.HEADER_SIZE));
+    payload = null;
 	
 	constructor() {}
 		
@@ -9,8 +10,8 @@ export default class RtpPacket {
 		
 	decode(byteStream) {
 		// """Decode the RTP packet."""
-		self.header = byteStream.slice(0, HEADER_SIZE);
-		self.payload = byteStream.slice(HEADER_SIZE, byteStream.length);
+		this.header = byteStream.slice(0, HEADER_SIZE);
+		this.payload = byteStream.slice(HEADER_SIZE, byteStream.length);
     }
 	
 	version() {
@@ -20,7 +21,7 @@ export default class RtpPacket {
 	
 	seqNum() {
 		// """Return sequence (frame) number."""
-		seqNum = self.header[2] << 8 | self.header[3]
+		seqNum = this.header[2] << 8 | this.header[3]
 		return parseInt(seqNum)
     }
 	
@@ -38,7 +39,7 @@ export default class RtpPacket {
 	
 	getPayload() {
 		// """Return payload."""
-		return self.payload
+		return this.payload
     }
 		
 	getPacket() {

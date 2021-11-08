@@ -5,7 +5,7 @@
 ### Run client 
 `cd client`\
 `yarn install`\
-`yarn start`\
+`yarn start`
 
 ### Simulation steps
 - Click Setup button, open browser's console to see connected message.

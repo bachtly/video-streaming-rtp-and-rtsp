@@ -15,239 +15,131 @@ CACHE_FILE_EXT = ".jpg"
 
 class Client {
 
-    # State
-    INIT = 0
-    READY = 1
-    PLAYING = 2
-    state = INIT
+    // # State
+    INIT = 0;
+    READY = 1;
+    PLAYING = 2;
+    state = INIT;
 
 
-    FRAME_TO_BACKWARD = 20
+    FRAME_TO_BACKWARD = 20;
 
-    # Button
-    SETUP = 0
-    PLAY = 1
-    PAUSE = 2
-    TEARDOWN = 3
+    // # Button
+    SETUP = 0;
+    PLAY = 1;
+    PAUSE = 2;
+    TEARDOWN = 3;
 
-    # More buttons
-    DESCRIBE = 4  
-    SHOWSTAT = 5 
-    SPEEDUP = 6
-    SLOWDOWN = 7
-    FORWARD = 8
-    BACKWARD = 9
+    // # More buttons
+    DESCRIBE = 4;
+    SHOWSTAT = 5;
+    SPEEDUP = 6;
+    SLOWDOWN = 7;
+    FORWARD = 8;
+    BACKWARD = 9;
     
 
-    # Initiation..
-    def __init__(self, master, serveraddr, serverport, rtpport, filename):
-        self.master = master        # master is GUI
+    // # Initiation..
+    constructor (master, serveraddr, serverport, rtpport, filename) {
+        self.master = master        //# master is GUI
         self.master.protocol("WM_DELETE_WINDOW", self.handler)
-        self.createWidgets()        # UI
         self.serverAddr = serveraddr
         self.serverPort = int(serverport)
         self.rtpPort = int(rtpport)
         self.fileName = filename
-        # Sequence Number
+        // # Sequence Number
         self.rtspSeq = 0
         self.sessionId = 0
-        # Check if a TEARDOWN message is received
+        // # Check if a TEARDOWN message is received
         self.requestSent = -1
         self.teardownAcked = 0
-        # Connect to server to send RTSP messages
+        // # Connect to server to send RTSP messages
         self.connectToServer()
         self.frameNbr = 0
-        # Variable to calculate session statistics (SHOWSTAT):
+        // # Variable to calculate session statistics (SHOWSTAT):
         self.count = 0
         self.sizeData = 0
         self.curSecond = 0
         self.curSeqNum = 0
         self.frameServerSent = 0
-        self.receivedTotalFrameNum = FALSE      # # when receiving reply from server ---> will show statistic
-        #self.sendRtspRequest(self.SETUP)       # for setup automatically
-        #self.setupMovie()
-        
-        
-    def createWidgets(self):
-        """Build GUI."""
+        self.receivedTotalFrameNum = FALSE      //# # when receiving reply from server ---> will show statistic
+        // #self.sendRtspRequest(self.SETUP)       # for setup automatically
+        // #self.setupMovie()
+    }
 
-        # Create a label to display the movie
-        self.label = Label(self.master, height=20)
-        self.label.grid(row=0, column=0, columnspan=6, sticky=W + E + N + S, padx=5, pady=5)
+    setupMovie(self) {
+        // """Setup button handler."""
+        if (this.state == this.INIT) {
+            // # state is INIT --> allow set up
+            this.sendRtspRequest(this.SETUP)    //# send request to set up movie
+        }     
+    }
 
-        myFont = font.Font(weight="bold")       # bold text
+    exitClient() {
+        // """Teardown button handler."""
+        self.sendRtspRequest(self.TEARDOWN)     //# send request to close
+        self.master.destroy()  //# Close the gui window
+        os.remove(CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT)  //# Delete the cache image from video
+    }
 
-        # Create Setup button
-        setup_image = PhotoImage(file = r"./assets/icons8-setting-32.png")
-        setup_image = setup_image.subsample(1, 1)
-        self.setup = Button(self.master,width =150 ,compound = LEFT, padx=3, pady=3, bg='#09aeae', image=setup_image)
-        self.setup.image = setup_image 
-        self.setup["text"] = "Setup"
-        self.setup["font"] = myFont
-        self.setup["command"] = self.setupMovie
-        self.setup.grid(row=1, column=0, padx=2, pady=2,sticky=N + S + E + W)
+    pauseMovie() {
+        // """Pause button handler."""
+        if (self.state == self.PLAYING) {
+            //# state is playing --> allow pause
+            self.sendRtspRequest(self.PAUSE);
+        }      
+    }
 
-        # Create Play button
-        play_image = PhotoImage(file = r"./assets/play-button.png")
-        play_image = play_image.subsample(1, 1)
-        self.play = Button(self.master,width =150 , compound = LEFT, padx=3, pady=3, bg='#09aeae', image=play_image)
-        self.play.image = play_image
-        self.play["text"] = "Play"
-        self.play["font"] = myFont
-        self.play["command"] = self.playMovie
-        self.play.grid(row=1, column=1, padx=2, pady=2,sticky=N + S + E + W)
+    playMovie() {
+        // """Play button handler."""      
+        // # if self.state == self.INIT:
+        // #    self.sendRtspRequest(self.SETUP)
 
-        # Create Pause button
-        pause_image = PhotoImage(file = r"./assets/icons8-pause-32.png")
-        pause_image = pause_image.subsample(1, 1)
-        self.pause = Button(self.master,width =150 , compound = LEFT, padx=3, pady=3, bg='#09aeae', image=pause_image)
-        self.pause.image = pause_image
-        self.pause["text"] = "Pause"
-        self.pause["font"] = myFont
-        self.pause["command"] = self.pauseMovie
-        self.pause.grid(row=1, column=2, padx=2, pady=2,sticky=N + S + E + W)
-
-        # Create Teardown button
-        teardown_image = PhotoImage(file = r"./assets/icons8-stop-32.png")
-        teardown_image = teardown_image.subsample(1, 1)
-        self.teardown = Button(self.master,width =150 , compound = LEFT, padx=3, pady=3, bg='#09aeae', image=teardown_image)
-        self.teardown.image = teardown_image
-        self.teardown["text"] = "Teardown"
-        self.teardown["font"] = myFont
-        self.teardown["command"] = self.exitClient
-        self.teardown.grid(row=1, column=3, padx=2, pady=2,sticky=N + S + E + W)
-
-        # Create SLOWDOWN button
-        slowdown_image = PhotoImage(file = r"./assets/slowdown.png")
-        slowdown_image = slowdown_image.subsample(1, 1)
-        self.slowdown = Button(self.master,width =150 , compound = LEFT, padx=3, pady=3, bg='#09aeae', image=slowdown_image)
-        self.slowdown.image = slowdown_image
-        self.slowdown["text"] = "Slow Down"
-        self.slowdown["font"] = myFont
-        self.slowdown["command"] = self.decreaseSpeed
-        self.slowdown.grid(row=2, column=0, padx=2, pady=2,sticky=N + S + E + W)
-
-        # Create SPEEDUP button
-        speedup_image = PhotoImage(file = r"./assets/speedup.png")
-        speedup_image = speedup_image.subsample(1, 1)
-        self.speedup = Button(self.master,width =150 , compound = LEFT, padx=3, pady=3, bg='#09aeae', image=speedup_image)
-        self.speedup.image = speedup_image
-        self.speedup["text"] = "Speed Up"
-        self.speedup["font"] = myFont
-        self.speedup["command"] = self.increaseSpeed
-        self.speedup.grid(row=2, column=1, padx=2, pady=2,sticky=N + S + E + W)
-
-        # Create BACKWARD button
-        backward_image = PhotoImage(file = r"./assets/bward.png")
-        backward_image = backward_image.subsample(1, 1)
-        self.backward = Button(self.master,width =150 , compound = LEFT, padx=3, pady=3, bg='#09aeae', image=backward_image)
-        self.backward.image = backward_image
-        self.backward["text"] = "Backward"
-        self.backward["font"] = myFont
-        self.backward["command"] = self.backwardVideo
-        self.backward.grid(row=2, column=2, padx=2, pady=2,sticky=N + S + E + W)
-
-        # Create FORWARD button
-        forward_image = PhotoImage(file = r"./assets/fward.png")
-        forward_image = forward_image.subsample(1, 1)
-        self.forward = Button(self.master,width =150 , compound = LEFT, padx=3, pady=3, bg='#09aeae', image=forward_image)
-        self.forward.image = forward_image
-        self.forward["text"] = "Forward"
-        self.forward["font"] = myFont
-        self.forward["command"] = self.forwardVideo
-        self.forward.grid(row=2, column=3, padx=2, pady=2,sticky=N + S + E + W)
-
-
-        # Draw horizontal line:       # Row increase 1 because MORE BUTTONS in below row
-        self.horizontal1 = Text(self.master, width=30, height=2, bg='#70baff')
-        self.horizontal1.grid(row=3, columnspan=4, sticky=E + W)
-
-        # Create Label for stream info:
-        self.infoLabel = Label(self.master, width=15, text="VIDEO STATISTIC", font='bold')
-        self.infoLabel.grid(row=4, column=0, padx=4, pady=2)
-
-
-        # Create DESCRIBE button
-        describe_image = PhotoImage(file = r"./assets/search.png")
-        describe_image = describe_image.subsample(1, 1)
-        self.describe = Button(self.master,width =150 , compound=LEFT, padx=3, pady=3, bg='#09aeae', image=describe_image)
-        self.describe.image = describe_image
-        self.describe["text"] = "Describe"
-        self.describe["font"] = myFont
-        self.describe["command"] = self.displayInfo
-        self.describe.grid(row=4, column=2, padx=2, pady=2,sticky=N + S + E + W)
-
-
-
-        #Create SHOWSTAT button
-        showstat_image = PhotoImage(file = r"./assets/graph.png")
-        showstat_image = showstat_image.subsample(1, 1)
-        self.showStat = Button(self.master,width =150 , compound=LEFT, padx=3, pady=3, bg='#09aeae', image=showstat_image)
-        self.showStat.image = showstat_image
-        self.showStat["text"] = "Statistic"
-        self.showStat["font"] = myFont
-        self.showStat["command"] = self.displayStat
-        self.showStat.grid(row=4, column=3, padx=2, pady=2,sticky=N + S + E + W)
-
-
-        # Create TextArea to display stream infomation:
-        self.streaminfo = Text(self.master, height=10, width=30)
-        self.streaminfo.grid(row=5, column=0, columnspan=4, sticky=W + E + N + S, padx=2, pady=2)
-
-
-    def setupMovie(self):
-        """Setup button handler."""
-        if self.state == self.INIT:     # state is INIT --> allow set up
-            self.sendRtspRequest(self.SETUP)    # send request to set up movie
-
-    def exitClient(self):
-        """Teardown button handler."""
-        self.sendRtspRequest(self.TEARDOWN)     # send request to close
-        self.master.destroy()  # Close the gui window
-        os.remove(CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT)  # Delete the cache image from video
-
-    def pauseMovie(self):
-        """Pause button handler."""
-        if self.state == self.PLAYING:      # state is playing --> allow pause
-            self.sendRtspRequest(self.PAUSE)
-
-    def playMovie(self):
-        """Play button handler."""      
-        # if self.state == self.INIT:
-        #    self.sendRtspRequest(self.SETUP)
-
-        if self.state == self.READY:        # state is ready --> allow play
-            # Create a new thread to listen for RTP packets
+        if (self.state == self.READY) {       //# state is ready --> allow play
+            //# Create a new thread to listen for RTP packets
             threading.Thread(target=self.listenRtp).start()
-            self.playEvent = threading.Event()  # Event(): quan ly flag, set() flag true, clear() flag false, wait() block until flag true
+            self.playEvent = threading.Event()  //# Event(): quan ly flag, set() flag true, clear() flag false, wait() block until flag true
             self.playEvent.clear()
             self.sendRtspRequest(self.PLAY)
+        }
+    }
     
-    def increaseSpeed(self):
-        """Speedup button handler"""
-        if self.state != self.INIT:
+    increaseSpeed() {
+        // """Speedup button handler"""
+        if (self.state != self.INIT) {
             self.sendRtspRequest(self.SPEEDUP)
+        }
+    }
 
-    def decreaseSpeed(self):
-        """Slowdown button handler"""
-        if self.state != self.INIT:
+    decreaseSpeed() {
+        // """Slowdown button handler"""
+        if (self.state != self.INIT) {
             self.sendRtspRequest(self.SLOWDOWN)
+        }
+    }
 
-    def forwardVideo(self):
-        if self.state != self.INIT:
+    forwardVideo() {
+        if (self.state != self.INIT) {
             self.sendRtspRequest(self.FORWARD)
+        }
+    }
 
-    def backwardVideo(self):
-        if self.state != self.INIT:
+    backwardVideo() {
+        if (self.state != self.INIT) {
             self.sendRtspRequest(self.BACKWARD)
+        }
+    }
 
-    def displayInfo(self):      # for describe button
-        """Describe button handler"""
-        if self.state != self.INIT:
+    displayInfo() {     //# for describe button
+        // """Describe button handler"""
+        if (self.state != self.INIT) {
             self.sendRtspRequest(self.DESCRIBE)
+        }
+    }
     
-    def displayStat(self):
-        """Show Stat button handler"""
+    displayStat() {
+
+        // """Show Stat button handler"""
         if self.state != self.INIT:
             self.sendRtspRequest(self.SHOWSTAT)
             while True:
@@ -263,8 +155,9 @@ class Client {
             self.streaminfo.insert(END, stat_to_show)
             # Remove the FLAG for next time
             self.receivedTotalFrameNum = FALSE
+    }
 
-    def listenRtp(self):
+    listenRtp(self):
         """Listen for RTP packets."""
         # Get time before receiving the packet
         before = datetime.now()         # for caculate bytes/seconds (ratio)
@@ -305,7 +198,7 @@ class Client {
                     self.rtpSocket.close()
                     break
 
-    def writeFrame(self, data):     # return image file, then updateMovie function use to show on GUI
+    writeFrame(self, data):     # return image file, then updateMovie function use to show on GUI
         """Write the received frame to a temp image file. Return the image file."""
         cachename = CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT
         file = open(cachename, "wb")    # writing binary format
@@ -314,13 +207,13 @@ class Client {
 
         return cachename
 
-    def updateMovie(self, imageFile):   # show image as video on GUI
+    updateMovie(self, imageFile):   # show image as video on GUI
         """Update the image file as video frame in the GUI."""
         photo = ImageTk.PhotoImage(Image.open(imageFile))
         self.label.configure(image=photo, height=288)
         self.label.image = photo
 
-    def connectToServer(self):
+    connectToServer(self):
         """Connect to the Server. Start a new RTSP/TCP session."""
         self.rtspSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
@@ -328,7 +221,7 @@ class Client {
         except:
             tkinter.messagebox.showwarning('Connection Failed', 'Connection to \'%s\' failed.' % self.serverAddr)
 
-    def sendRtspRequest(self, requestCode):
+    sendRtspRequest(self, requestCode):
         """Send RTSP request to the server."""
         # -------------
         # TO COMPLETE
@@ -437,7 +330,7 @@ class Client {
         self.rtspSocket.sendall(request.encode("utf-8"))
         print('\nData sent:\n' + request)   # print request above
 
-    def recvRtspReply(self):
+    recvRtspReply(self):
         """Receive RTSP reply from the server."""
         while True:
             reply = self.rtspSocket.recv(1024)  # reveive reply from server
@@ -451,7 +344,7 @@ class Client {
                 self.rtspSocket.close()         # close socket
                 break
 
-    def parseRtspReply(self, data):     # get session id and sequence number of video
+    parseRtspReply(self, data):     # get session id and sequence number of video
         """Parse the RTSP reply from the server."""
         lines = data.split('\n')
         seqNum = int(lines[1].split(' ')[1])
@@ -498,7 +391,7 @@ class Client {
                         self.frameServerSent = int(lines[3].split(':')[1].strip())
                         self.receivedTotalFrameNum = True
 
-    def openRtpPort(self):
+    openRtpPort(self):
         """Open RTP socket binded to a specified port."""
         # -------------
         # TO COMPLETE
@@ -519,7 +412,7 @@ class Client {
         except:
             tkinter.messagebox.showwarning('Unable to Bind', 'Unable to bind PORT=%d' % self.rtpPort)
 
-    def handler(self):
+    handler(self):
         """Handler on explicitly closing the GUI window."""
         self.pauseMovie()
         if tkinter.messagebox.askokcancel("Are you sure you want to quit?"):
