@@ -11,9 +11,12 @@ yarn install
 yarn start
 ```
 
-### Simulation steps
-- Click Setup button, open browser's console to see connected message.
-- Click test button, open cmd of server to see message has been sent.
+### Functional
+- Click SETUP button
+- Click BACKWARD button
+- Click PLAY button
+- Click FORWARD button
+- Click PAUSE button
 
 ### Flow of Client
 - Connect to socket (RTSP and RTP)
