@@ -1,6 +1,6 @@
 ### Run server (default PORT = 1410)
 ```
-cd server
+cd server/src
 python server.py
 ```
 
