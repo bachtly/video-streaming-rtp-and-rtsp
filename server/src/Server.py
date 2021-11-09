@@ -2,7 +2,9 @@ import eventlet
 import socketio
 from random import randint
 from VideoStream import VideoStream
-from RtpPacket import RtpPacket
+import cv2
+import base64
+import asyncio
 
 
 
@@ -31,10 +33,12 @@ clientInfo = {}
 
 listMovies = ["movie", "movie1", "movie2"]
 
+status = True
+
 @sio.on('RTSP')
 def recvRtspRequest(sid, data):
     global state
-    print(data)
+    global status
     request = data.split('\n')
     line1 = request[0].split(' ')
     requestType = line1[0] # Setup/pause/teardown
@@ -56,9 +60,9 @@ def recvRtspRequest(sid, data):
     elif requestType==PLAY:
         if state==READY:
             print('process PLAY\n')
+            status = True
             state=PLAYING
             replyRtsp(OK_200, seq[1])
-            print('sent RSTP')
             # Create a new thread and start sending RTP packets
             sendRtp()
     elif requestType==PAUSE:
@@ -66,11 +70,13 @@ def recvRtspRequest(sid, data):
             print('process PAUSE\n')
             state = READY
             replyRtsp(OK_200, seq[1])
-            sendRtp(False)
+            status = False
+            sendRtp()
     elif requestType==TEARDOWN:
         print('process TEARDOWN\n')
         replyRtsp(OK_200, seq[1])
-        sendRtp(False, False)
+        status = False
+        sendRtp(False)
     elif requestType==FASTFORWARD:
         print('process FASTFORWARD\n')
         clientInfo['videoStream'].fastForward()
@@ -83,7 +89,6 @@ def recvRtspRequest(sid, data):
         print('process SWITCH\n')
         state = READY
         clientInfo['videoStream'] = VideoStream(filename)
-        state = READY
         replyRtsp(OK_200, seq[1])
 
 
@@ -99,29 +104,30 @@ def replyRtsp(code, seq):
     elif code == CON_ERR_500:
         print("500 CONNECTION ERROR")
 
-def sendRtp(status=True, pause = True):
-    if status:
-        count = 1
-        while status:
-            print(count)
-            count+=1
-            data = clientInfo['videoStream'].nextFrame()
-            if data:
-                frameNumber = clientInfo['videoStream'].frameNbr()
-                try:
-                    sio.emit('recvRTP', {'img': data, 'frameNum': frameNumber});
-                except:
-                    print("Connection Error")
+def sendRtp(pause = True):
+            if status:
+                count = 1
+                while status:
+                    data = clientInfo['videoStream'].nextFrame()
+                    if data:
+                        frameNumber = clientInfo['videoStream'].frameNbr()
+                        print(frameNumber)
+                        try:
+                            sio.emit('recvRTP', {'img': data, 'frameNum': frameNumber});
+                            sio.sleep(0.04);
+                        except:
+                            print("Connection Error")
+                    else:
+                        sio.emit('recvRTP',{'status':'teardown'})
+                        break
             else:
-                sio.emit('recvRTP',{'status':'teardown'})
-            if count==500:
-                print('du 500')
-                break
-    else:
-        if pause:
-            sio.emit('recvRTP',{'status':'pause'})
-        else:
-            sio.emit('recvRTP',{'status':'teardown'})
+                if pause:
+                    data = clientInfo['videoStream'].getcurrentframe()
+                    sio.emit('recvRTP',{'status':data})
+                else:
+                    global state
+                    state = INIT
+                    sio.emit('recvRTP',{'status':'teardown'})
 
 
 
