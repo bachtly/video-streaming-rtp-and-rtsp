@@ -7,40 +7,35 @@ import FastRewindIcon from '@mui/icons-material/FastRewind'
 import StopIcon from '@mui/icons-material/Stop';
 import PauseIcon from '@mui/icons-material/Pause';
 
+const INIT = 0;
+const READY = 1;
+const PLAYING = 2;
+var state = INIT;
+const SETUP = 0;
+const PLAY = 1;
+const PAUSE = 2;
+const TEARDOWN = 3;
+const FASTFORWARD = 4;
+const BACKWARD = 5;
+const SWITCH = 6;
+
+const serverAddr = 'localhost';
+const serverPort = 3000;
+const rtpPort = 2;
+const filename = 'movie.Mjpeg';
+
+var rtspSeq = 0;
+var sessionId = 0;
+var requestSent = -1;
+var teardownAcked = 0;
+var frameNbr = 0;
+
+var socket = '';
+
 function HomePage() {
-	const INIT = 0;
-	const READY = 1;
-	const PLAYING = 2;
-	var state = INIT;
-	const SETUP = 0;
-	const PLAY = 1;
-	const PAUSE = 2;
-	const TEARDOWN = 3;
-	const FASTFORWARD = 4;
-	const BACKWARD = 5;
-	const SWITCH = 6;
-
-	const serverAddr = 'localhost';
-	const serverPort = 3000;
-	const rtpPort = 2;
-	const filename = 'movie.Mjpeg';
-
-	var rtspSeq = 0;
-	var sessionId = 0;
-	var requestSent = -1;
-	var teardownAcked = 0;
-	var frameNbr = 0;
-
-	var socket = io.connect('ws://127.0.0.1:1410')
-
-	// connectToServer();
-
-	// const connectToServer= () => {
-	// 	socket = io.connect('ws://127.0.0.1:1410')
-	// }
 
 	const setupMovie = () => {
-		
+		socket = io.connect('ws://127.0.0.1:1410')
 		if (state === INIT) {
 			sendRtspRequest(SETUP);
 		}
@@ -53,18 +48,18 @@ function HomePage() {
 	}
 
 	const pauseMovie = () => {
+		console.log('state'+String(state))
 		if(state === PLAYING) {
 			sendRtspRequest(PAUSE);
 		}
 	}
 
 	const playMovie = () => {
-		// setupMovie();
-		sendRtspRequest(PLAY);
+
 		if (state === READY) {
 			listenRtp();
+			sendRtspRequest(PLAY);
 		}
-
 	}
 
 	const fastForward= () => {
@@ -85,27 +80,47 @@ function HomePage() {
 		}
 	}
 
-	const listenRtp= () => {
+	const listenRtp = () => {
 		socket.on('recvRTP', function(data){
-			var count = Object.keys(data).length;
-			if(count===1){
-				if(data.status==='pause'){
-					var img = '';//source img
+				var count = Object.keys(data).length;
+				if(count===1){
+					if(typeof data.status==="string"){
+						var img = 'https://i.pinimg.com/736x/03/9e/1c/039e1c11cb133d1f09f9f078c48b94cf.jpg';//link image when teardown
+						setImgSrc(img);
+						sessionId = 0;
+						requestSent = -1;
+						teardownAcked = 0;
+						frameNbr = 0;
+						state = INIT;
+					}else{
+						var img = data.status;
+						var base64String = arrayBufferToBase64(img);
+						setImgSrc('data:image/png;base64,'+ base64String);
+					}
 				}else{
-					var img = '';//link image when teardown
+					var currFrameNbr = parseInt(data.frameNum);
+					frameNbr = currFrameNbr;
+					var img = data.img;
+					var base64String = arrayBufferToBase64(img);
+					setImgSrc('data:image/png;base64,'+ base64String);
+					// console.log(frameNbr);
+					//Show image on web
 				}
-			}else{
-				var currFrameNbr = parseInt(data.frameNum);
-				frameNbr = currFrameNbr;
-				var img = data.img;
-				console.log(img);
-				console.log(frameNbr);
-				//Show image on web
-			}
-		})
+			})
+	}
+
+	const arrayBufferToBase64 = ( buffer ) => {
+		var binary = '';
+		var bytes = new Uint8Array( buffer );
+		var len = bytes.byteLength;
+		for (var i = 0; i < len; i++) {
+			binary += String.fromCharCode( bytes[ i ] );
+		}
+		return window.btoa( binary );
 	}
 
 	const sendRtspRequest = (requestCode) =>{
+		console.log(requestCode,state);
 		var request = "";
 		if (requestCode===SETUP && state===INIT) {
 			rtspSeq+=1;
@@ -117,6 +132,7 @@ function HomePage() {
 			requestSent=PLAY;
 		}else if(requestCode===PAUSE && state===PLAYING){
 			rtspSeq+=1;
+			console.log('aloooooooooo')
 			request = 'PAUSE ' + filename + ' RTSP/1.0\nCSeq: ' + String(rtspSeq) + '\nSession: ' + String(sessionId);
 			requestSent=PAUSE;
 		}else if(requestCode===TEARDOWN && state!==INIT){
@@ -134,38 +150,33 @@ function HomePage() {
 		}else{
 			return;
 		}
-		
+		recvRtspReply();
 		socket.emit('RTSP',request);
 		console.log('\nData sent:\n' + request);
-		recvRtspReply();
+		
 	}
 
 	const recvRtspReply=()=>{
 		socket.on('recvRTSP',function(reply){
-			console.log('Request message\n'+ reply)
 			var data = reply;
-			if (reply!==''){
+			if (data!==''){
 				var lines = data.split('\n')
 				var seqNum = parseInt(lines[1].split(' ')[1])
 				if (seqNum===rtspSeq){
 					var session = parseInt(lines[2].split(' ')[1]);
-					if (sessionId==0){
+					if (sessionId===0){
 						sessionId = session;
 					}
-					if (sessionId==session){
+					if (sessionId===session){
 						if (parseInt(lines[0].split(' ')[1])===200){
 							if (requestSent===SETUP){
 								state=READY;
-								//open port
-							}else if(requestSent===PLAYING){
+							}else if(requestSent===PLAY){
 								state=PLAYING;
-								openRtpPort();
 							}else if(requestSent===PAUSE){
 								state = READY;
-								//The play thread exit
 							}else if(requestSent===SWITCH){
 								state = READY;
-								//The play thread exit
 							}else if (requestSent===TEARDOWN){
 								state = INIT;
 								teardownAcked = 1;
@@ -175,42 +186,26 @@ function HomePage() {
 
 				}
 			}	
-			console.log(String(state))
 		})
 	}
 
-	const openRtpPort= ()=>{
-		socket.emit('RTP', 'Open RTPport');
-		listenRtp();
-	}
-
-	const [imgSrc, setImgSrc] = useState('');
-	const [isPlay, setIsPlay] = useState(false);
-
-	const handleOnClickPlaybtn = () => {
-		
-		// if (isPlay) {
-		// 	pauseMovie();
-		// }else{
-		// 	playMovie();
-		// }
-		setIsPlay(!isPlay);
-
-	}
+	const [imgSrc, setImgSrc] = useState('https://9mobi.vn/cf/images/2015/03/nkk/hinh-anh-dep-1.jpg');
   
 	return (
 		<Box>
-			<Box sx={{justifyContent: 'center', display:'flex'}}>HomePage</Box>
+			<br/>
+			<Box sx={{justifyContent: 'center', display:'flex'}}>VideoStreaming</Box>
+			<br/>
 			<Box sx={{justifyContent: 'center', display:'flex'}}>
-				<img src={imgSrc} alt='Video'/>
+				<img src={imgSrc} alt='Video' style={{width: 1000, height: 490}}/>
 			</Box>
+			<br/>
 			<Box sx={{justifyContent: 'center', display:'flex'}}>
-				<Box if="backward" onClick={pauseMovie}><FastRewindIcon/></Box>
-				<Box id="playbtn" onClick={handleOnClickPlaybtn}>{
-					isPlay? <PauseIcon/> : <PlayArrowIcon/>
-				}</Box>
-				<Box id ="forward" onClick={playMovie}><FastForwardIcon/></Box>
-				<Box id="exit" onClick={setupMovie}><StopIcon/></Box>
+				<button onClick={setupMovie} style={{width: 100, height: 30}}>SETUP</button>
+				<button onClick={fastBackward} style={{width: 100, height: 30}}>BACKWARD</button>
+				<button onClick={playMovie} style={{width: 100, height: 30}}>PLAY</button>
+				<button onClick={fastForward} style={{width: 100, height: 30}}>FORWARD</button>
+				<button onClick={pauseMovie} style={{width: 100, height: 30}}>PAUSE</button>
 			</Box>
 		</Box>
 	)
