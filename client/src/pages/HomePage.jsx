@@ -189,6 +189,7 @@ function HomePage() {
 		})
 	}
 
+
 	const [imgSrc, setImgSrc] = useState('https://9mobi.vn/cf/images/2015/03/nkk/hinh-anh-dep-1.jpg');
   
 	return (
@@ -204,8 +205,9 @@ function HomePage() {
 				<button onClick={setupMovie} style={{width: 100, height: 30}}>SETUP</button>
 				<button onClick={fastBackward} style={{width: 100, height: 30}}>BACKWARD</button>
 				<button onClick={playMovie} style={{width: 100, height: 30}}>PLAY</button>
-				<button onClick={fastForward} style={{width: 100, height: 30}}>FORWARD</button>
 				<button onClick={pauseMovie} style={{width: 100, height: 30}}>PAUSE</button>
+				<button onClick={fastForward} style={{width: 100, height: 30}}>FORWARD</button>
+				<button onClick={exitClient} style={{width: 100, height: 30}}>TEARDOWN</button>
 			</Box>
 		</Box>
 	)
