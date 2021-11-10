@@ -49,6 +49,8 @@ def recvRtspRequest(sid, data):
     # Get the RTSP sequence number 
     seq = request[1].split(' ')
     if requestType == SETUP:
+        if status == False:
+            status = True
         if state == INIT:
             print('process SETUP\n')
             clientInfo['videoStream'] = VideoStream(filename)
@@ -105,8 +107,8 @@ def replyRtsp(code, seq):
         print("500 CONNECTION ERROR")
 
 def sendRtp(pause = True):
+            global state
             if status:
-                count = 1
                 while status:
                     data = clientInfo['videoStream'].nextFrame()
                     if data:
@@ -118,6 +120,7 @@ def sendRtp(pause = True):
                         except:
                             print("Connection Error")
                     else:
+                        state = INIT
                         sio.emit('recvRTP',{'status':'teardown'})
                         break
             else:
@@ -125,7 +128,6 @@ def sendRtp(pause = True):
                     data = clientInfo['videoStream'].getcurrentframe()
                     sio.emit('recvRTP',{'status':data})
                 else:
-                    global state
                     state = INIT
                     sio.emit('recvRTP',{'status':'teardown'})
 
