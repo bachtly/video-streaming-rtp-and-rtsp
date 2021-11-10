@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
 import io from 'socket.io-client'
-import {Box} from '@mui/material'
+import {Box, Button} from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import FastForwardIcon from '@mui/icons-material/FastForward'
 import FastRewindIcon from '@mui/icons-material/FastRewind'
 import StopIcon from '@mui/icons-material/Stop';
 import PauseIcon from '@mui/icons-material/Pause';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 const INIT = 0;
 const READY = 1;
@@ -55,7 +56,6 @@ function HomePage() {
 	}
 
 	const playMovie = () => {
-
 		if (state === READY) {
 			listenRtp();
 			sendRtspRequest(PLAY);
@@ -193,21 +193,41 @@ function HomePage() {
 	const [imgSrc, setImgSrc] = useState('https://9mobi.vn/cf/images/2015/03/nkk/hinh-anh-dep-1.jpg');
   
 	return (
-		<Box>
-			<br/>
-			<Box sx={{justifyContent: 'center', display:'flex'}}>VideoStreaming</Box>
-			<br/>
-			<Box sx={{justifyContent: 'center', display:'flex'}}>
-				<img src={imgSrc} alt='Video' style={{width: 1000, height: 490}}/>
-			</Box>
-			<br/>
-			<Box sx={{justifyContent: 'center', display:'flex'}}>
-				<button onClick={setupMovie} style={{width: 100, height: 30}}>SETUP</button>
-				<button onClick={fastBackward} style={{width: 100, height: 30}}>BACKWARD</button>
-				<button onClick={playMovie} style={{width: 100, height: 30}}>PLAY</button>
-				<button onClick={pauseMovie} style={{width: 100, height: 30}}>PAUSE</button>
-				<button onClick={fastForward} style={{width: 100, height: 30}}>FORWARD</button>
-				<button onClick={exitClient} style={{width: 100, height: 30}}>TEARDOWN</button>
+		<Box sx={{backgroundColor: '#303030', height: '100vh', justifyContent:'center', display:'flex'}}>
+			<Box sx={{
+				height: '95%', width: 'wrap-content', backgroundColor: '#303030', display:'flex', 
+				flexDirection:'column', justifyContent: 'space-between'
+			}}>
+				<Box sx={{
+					justifyContent: 'center', display:'flex', 
+					backgroundColor: '#303030', width: '100%', mt: 4,
+					color: '#fff', fontSize:'32px', fontWeight: 700,
+				}}>
+					Video Streaming
+				</Box>
+				<Box sx={{
+					justifyContent: 'center', display:'flex',
+					backgroundColor: '#303030'
+				}}>
+					<img src={imgSrc} alt='Video' style={{width: 1000, height: 490}}/>
+				</Box>
+
+				<Box sx={{
+					justifyContent: 'space-between', display:'flex', width: '100%',
+					backgroundColor: '#303030', 
+				}}>
+					<Box sx={{display:'flex'}}>
+						<Button onClick={fastBackward}><FastRewindIcon sx={{ height: 30, color: '#fff'}}/></Button>
+						<Button onClick={playMovie}><PlayArrowIcon  sx={{height: 30, color: '#fff'}}/></Button>
+						<Button onClick={pauseMovie}><PauseIcon  sx={{height: 30, color: '#fff'}}/></Button>
+						<Button onClick={fastForward}><FastForwardIcon  sx={{height: 30, color: '#fff'}}/></Button>
+
+					</Box>
+					<Box sx={{display:'flex'}}>
+						<Button onClick={exitClient}><StopIcon  sx={{height: 30, color: '#fff'}}/></Button>
+						<Button onClick={setupMovie}><SettingsIcon sx={{height: 30, color: '#fff'}}/></Button>
+					</Box>
+				</Box>
 			</Box>
 		</Box>
 	)
