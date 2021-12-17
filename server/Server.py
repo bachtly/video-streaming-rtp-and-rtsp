@@ -4,7 +4,6 @@ from random import randint
 from VideoStream import VideoStream
 
 sio = socketio.Server(cors_allowed_origins='*')
-
 app = socketio.WSGIApp(sio)
 
 OK_200 = 0
@@ -133,12 +132,8 @@ servers = {}
 
 @sio.on('RTSP')
 def recvRtspRequest(sid, data):
-    print("=============================SID=============================")
-    print(sid)
-    
     if sid not in servers.keys():
         servers[sid] = Server(sid)
-    print("Total number of working servers ", len(servers))
     status = servers[sid].serve(data)
     if status==TEARDOWN:
         servers.pop(sid)
