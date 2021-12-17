@@ -37,6 +37,9 @@ status = True
 
 @sio.on('RTSP')
 def recvRtspRequest(sid, data):
+    print("=============================SID=============================")
+    print(sid)
+    
     global state
     global status
     request = data.split('\n')
@@ -107,29 +110,29 @@ def replyRtsp(code, seq):
         print("500 CONNECTION ERROR")
 
 def sendRtp(pause = True):
-            global state
-            if status:
-                while status:
-                    data = clientInfo['videoStream'].nextFrame()
-                    if data:
-                        frameNumber = clientInfo['videoStream'].frameNbr()
-                        print(frameNumber)
-                        try:
-                            sio.emit('recvRTP', {'img': data, 'frameNum': frameNumber});
-                            sio.sleep(0.04);
-                        except:
-                            print("Connection Error")
-                    else:
-                        state = INIT
-                        sio.emit('recvRTP',{'status':'teardown'})
-                        break
+    global state
+    if status:
+        while status:
+            data = clientInfo['videoStream'].nextFrame()
+            if data:
+                frameNumber = clientInfo['videoStream'].frameNbr()
+                print(frameNumber)
+                try:
+                    sio.emit('recvRTP', {'img': data, 'frameNum': frameNumber})
+                    sio.sleep(0.04)
+                except:
+                    print("Connection Error")
             else:
-                if pause:
-                    data = clientInfo['videoStream'].getcurrentframe()
-                    sio.emit('recvRTP',{'status':data})
-                else:
-                    state = INIT
-                    sio.emit('recvRTP',{'status':'teardown'})
+                state = INIT
+                sio.emit('recvRTP',{'status':'teardown'})
+                break
+    else:
+        if pause:
+            data = clientInfo['videoStream'].getcurrentframe()
+            sio.emit('recvRTP',{'status':data})
+        else:
+            state = INIT
+            sio.emit('recvRTP',{'status':'teardown'})
 
 
 

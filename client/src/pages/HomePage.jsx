@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import io from 'socket.io-client'
 import {Box, Button} from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
@@ -6,24 +6,21 @@ import FastForwardIcon from '@mui/icons-material/FastForward'
 import FastRewindIcon from '@mui/icons-material/FastRewind'
 import StopIcon from '@mui/icons-material/Stop';
 import PauseIcon from '@mui/icons-material/Pause';
-import SettingsIcon from '@mui/icons-material/Settings';
 
-const INIT = 0;
-const READY = 1;
-const PLAYING = 2;
-var state = INIT;
-const SETUP = 0;
-const PLAY = 1;
-const PAUSE = 2;
-const TEARDOWN = 3;
-const FASTFORWARD = 4;
-const BACKWARD = 5;
-const SWITCH = 6;
+const INIT = 0
+const READY = 1
+const PLAYING = 2
+const SETUP = 0
+const PLAY = 1
+const PAUSE = 2
+const TEARDOWN = 3
+const FASTFORWARD = 4
+const BACKWARD = 5
 
-const serverAddr = 'localhost';
-const serverPort = 3000;
-const rtpPort = 2;
-const filename = 'movie.Mjpeg';
+// const serverAddr = 'localhost';
+// const serverPort = 3000;
+const rtpPort = 2
+const filename = 'movie.Mjpeg'
 
 var rtspSeq = 0;
 var sessionId = 0;
@@ -34,30 +31,38 @@ var frameNbr = 0;
 var socket = '';
 
 function HomePage() {
+	const [state, setState] = useState(INIT);
+	const [settingUp, setSettingUp] = useState(true);
 
-	const setupMovie = () => {
-		socket = io.connect('ws://127.0.0.1:1410')
-		if (state === INIT) {
-			sendRtspRequest(SETUP);
+	useEffect(() => {
+		// console.log("Use effect setting up")
+		if (settingUp===false) {
+			playMovie();
 		}
-
-	}
-
+	}, [settingUp])
 
 	const exitClient = () => {
 		sendRtspRequest(TEARDOWN);
 	}
 
 	const pauseMovie = () => {
-		console.log('state'+String(state))
 		if(state === PLAYING) {
 			sendRtspRequest(PAUSE);
 		}
 	}
 
 	const playMovie = () => {
+		if (state === INIT) {
+			// connect to socket at 127.0.0.1:1410
+			socket = io('ws://127.0.0.1:1410')
+			socket.on("connect", () => {
+				recvRtspReply();
+				listenRtp();
+			});
+			sendRtspRequest(SETUP);
+			setSettingUp(true);
+		}
 		if (state === READY) {
-			listenRtp();
 			sendRtspRequest(PLAY);
 		}
 	}
@@ -74,24 +79,20 @@ function HomePage() {
 		}
 	}
 
-	const switchMovie= () => {
-		if(state===INIT){
-			sendRtspRequest(SWITCH);
-		}
-	}
 
 	const listenRtp = () => {
-		socket.on('recvRTP', function(data){
+		socket.on('recvRTP'+socket.id, function(data){
 				var count = Object.keys(data).length;
 				if(count===1){
 					if(typeof data.status==="string"){
-						var img = 'https://i.pinimg.com/736x/03/9e/1c/039e1c11cb133d1f09f9f078c48b94cf.jpg';//link image when teardown
+						var img = 'end.png';//link image when teardown
 						setImgSrc(img);
 						sessionId = 0;
 						requestSent = -1;
 						teardownAcked = 0;
 						frameNbr = 0;
-						state = INIT;
+						// state = INIT;
+						setState(INIT)
 					}else{
 						var img = data.status;
 						var base64String = arrayBufferToBase64(img);
@@ -120,7 +121,7 @@ function HomePage() {
 	}
 
 	const sendRtspRequest = (requestCode) =>{
-		console.log(requestCode,state);
+		// console.log(requestCode,state);
 		var request = "";
 		if (requestCode===SETUP && state===INIT) {
 			rtspSeq+=1;
@@ -132,7 +133,6 @@ function HomePage() {
 			requestSent=PLAY;
 		}else if(requestCode===PAUSE && state===PLAYING){
 			rtspSeq+=1;
-			console.log('aloooooooooo')
 			request = 'PAUSE ' + filename + ' RTSP/1.0\nCSeq: ' + String(rtspSeq) + '\nSession: ' + String(sessionId);
 			requestSent=PAUSE;
 		}else if(requestCode===TEARDOWN && state!==INIT){
@@ -150,14 +150,12 @@ function HomePage() {
 		}else{
 			return;
 		}
-		recvRtspReply();
 		socket.emit('RTSP',request);
-		console.log('\nData sent:\n' + request);
 		
 	}
 
 	const recvRtspReply=()=>{
-		socket.on('recvRTSP',function(reply){
+		socket.on('recvRTSP' + socket.id,function(reply){
 			var data = reply;
 			if (data!==''){
 				var lines = data.split('\n')
@@ -170,15 +168,14 @@ function HomePage() {
 					if (sessionId===session){
 						if (parseInt(lines[0].split(' ')[1])===200){
 							if (requestSent===SETUP){
-								state=READY;
+								setState(READY)
+								setSettingUp(false);
 							}else if(requestSent===PLAY){
-								state=PLAYING;
+								setState(PLAYING)
 							}else if(requestSent===PAUSE){
-								state = READY;
-							}else if(requestSent===SWITCH){
-								state = READY;
+								setState(READY)
 							}else if (requestSent===TEARDOWN){
-								state = INIT;
+								setState(INIT)
 								teardownAcked = 1;
 							}
 						}
@@ -190,42 +187,71 @@ function HomePage() {
 	}
 
 
-	const [imgSrc, setImgSrc] = useState('https://9mobi.vn/cf/images/2015/03/nkk/hinh-anh-dep-1.jpg');
+	const [imgSrc, setImgSrc] = useState('start.png');
   
 	return (
-		<Box sx={{backgroundColor: '#303030', height: '100vh', justifyContent:'center', display:'flex'}}>
+		<Box sx={{display:'flex', justifyContent: 'center', flexDirection: 'column'}}>
 			<Box sx={{
-				height: '95%', width: 'wrap-content', backgroundColor: '#303030', display:'flex', 
-				flexDirection:'column', justifyContent: 'space-between'
+				justifyContent: 'center', display:'flex', 
+				py: 2, fontSize:'32px', fontWeight: 700,
+				backgroundColor: '#ededed'
 			}}>
-				<Box sx={{
-					justifyContent: 'center', display:'flex', 
-					backgroundColor: '#303030', width: '100%', mt: 4,
-					color: '#fff', fontSize:'32px', fontWeight: 700,
-				}}>
-					Video Streaming
-				</Box>
-				<Box sx={{
-					justifyContent: 'center', display:'flex',
-					backgroundColor: '#303030'
-				}}>
-					<img src={imgSrc} alt='Video' style={{width: 1000, height: 490}}/>
-				</Box>
-
-				<Box sx={{
-					justifyContent: 'space-between', display:'flex', width: '100%',
-					backgroundColor: '#303030', 
-				}}>
-					<Box sx={{display:'flex'}}>
-						<Button onClick={fastBackward}><FastRewindIcon sx={{ height: 30, color: '#fff'}}/></Button>
-						<Button onClick={playMovie}><PlayArrowIcon  sx={{height: 30, color: '#fff'}}/></Button>
-						<Button onClick={pauseMovie}><PauseIcon  sx={{height: 30, color: '#fff'}}/></Button>
-						<Button onClick={fastForward}><FastForwardIcon  sx={{height: 30, color: '#fff'}}/></Button>
-
+				Video Streaming
+			</Box>
+			<Box sx={{justifyContent: 'center', display:'flex', mt: 5}}>
+				<Box id="inner-wrapper" 
+					sx={{
+						display:'flex', 
+						justifyContent: 'space-between',
+						flexDirection:'column', width: 500,
+						border: '5px solid grey',
+						backgroundColor: '#000'
+					}}
+				>
+					
+					<Box sx={{
+						justifyContent: 'center', display:'flex', height: 400,
+						backgroundImage: imgSrc
+					}}>
+						<img src={imgSrc} alt='Video' 
+							style={{maxHeight: '100%', maxWidth: '100%', p: 'auto', objectFit: 'contain'}}
+						/>
 					</Box>
-					<Box sx={{display:'flex'}}>
-						<Button onClick={exitClient}><StopIcon  sx={{height: 30, color: '#fff'}}/></Button>
-						<Button onClick={setupMovie}><SettingsIcon sx={{height: 30, color: '#fff'}}/></Button>
+
+					<Box sx={{
+						justifyContent: 'center', display:'flex',
+						backgroundColor: '#ededed'
+					}}>
+						<Box sx={{display:'flex'}}>
+							<Button onClick={fastBackward}>
+								<FastRewindIcon  sx={{fontSize: 35}}/>
+							</Button>
+						</Box>
+						<Box sx={{display:'flex',}}>
+							<Button onClick={playMovie} sx={{
+								verticalAlign: 'center',
+								display: state===PLAYING? 'none': ''
+							}}>
+								<PlayArrowIcon  sx={{fontSize: 35}}/>
+							</Button>
+							
+						</Box>
+						<Box sx={{display:'flex'}}>
+							<Button onClick={pauseMovie} sx={{display: state===PLAYING? '':'none'}}>
+								<PauseIcon  sx={{fontSize: 35}}/>
+							</Button>
+						</Box>
+						<Box sx={{display:'flex'}}>
+							<Button onClick={fastForward}>
+								<FastForwardIcon  sx={{fontSize: 35}}/>
+							</Button>
+						</Box>
+						<Box sx={{display:'flex'}}>
+							<Button onClick={exitClient}>
+								<StopIcon  sx={{fontSize: 35}}/>
+							</Button>
+						</Box>
+						
 					</Box>
 				</Box>
 			</Box>
