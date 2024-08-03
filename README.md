@@ -1,3 +1,7 @@
+# Video Streaming By RTP And RTSP
+A simple web client and server for streaming videos using RTP and RTSP protocols.
+
+## Quick Start
 ### Run server (default PORT = 1410)
 ```
 cd server/src
